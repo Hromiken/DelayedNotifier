@@ -4,10 +4,16 @@ import (
 	"context"
 	"delayedNotifier/internal/entity"
 	"encoding/json"
-	"time"
 
 	"github.com/google/uuid"
 	"github.com/wb-go/wbf/rabbitmq"
+)
+
+const (
+	StatusPending   = "pending"
+	StatusScheduled = "scheduled"
+	StatusSent      = "sent"
+	StatusFailed    = "failed"
 )
 
 type Storage interface {
@@ -16,27 +22,32 @@ type Storage interface {
 	DeleteNotify(ctx context.Context, id string) error
 }
 
-type Service struct {
+// NotifierService - delayed notifier service.
+type NotifierService struct {
 	storage   Storage
 	publisher *rabbitmq.Publisher
 }
 
-func NewService(storage Storage, publisher *rabbitmq.Publisher) *Service {
-	return &Service{
+// NewNotifierService - конструктор NotifierService.
+func NewNotifierService(storage Storage, publisher *rabbitmq.Publisher) *NotifierService {
+	return &NotifierService{
 		storage:   storage,
 		publisher: publisher,
 	}
 }
 
-func (s *Service) CreateNotify(ctx context.Context, req entity.Request) (string, error) {
+// CreateNotify - метод NotifierService для создания уведомления и отправления его ID в очередь RabbitMQ.
+func (s *NotifierService) CreateNotify(ctx context.Context, req entity.Request) (string, error) {
 	id := uuid.New().String()
 
 	n := entity.Notification{
 		ID:      id,
 		Message: req.Message,
 		UserID:  req.UserID,
-		SendAt:  time.Now(),
-		Status:  "pending",
+		SendAt:  req.SendAt,
+		Status:  StatusPending,
+		Retry:   0,
+		Sender:  req.Sender,
 	}
 
 	err := s.storage.CreateNotify(ctx, n)
@@ -44,7 +55,7 @@ func (s *Service) CreateNotify(ctx context.Context, req entity.Request) (string,
 		return "", err
 	}
 
-	body, err := json.Marshal(n)
+	body, err := json.Marshal(map[string]string{"id": id})
 	if err != nil {
 		return "", err
 	}
@@ -61,10 +72,12 @@ func (s *Service) CreateNotify(ctx context.Context, req entity.Request) (string,
 	return id, nil
 }
 
-func (s *Service) GetNotify(ctx context.Context, id string) (*entity.Notification, error) {
+// GetNotify - метод NotifierService для получения уведомления по id.
+func (s *NotifierService) GetNotify(ctx context.Context, id string) (*entity.Notification, error) {
 	return s.storage.GetNotify(ctx, id)
 }
 
-func (s *Service) DeleteNotify(ctx context.Context, id string) error {
+// DeleteNotify - метод NotifierService для удаления уведомления по id.
+func (s *NotifierService) DeleteNotify(ctx context.Context, id string) error {
 	return s.storage.DeleteNotify(ctx, id)
 }

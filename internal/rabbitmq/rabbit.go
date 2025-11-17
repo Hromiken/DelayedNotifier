@@ -1,6 +1,7 @@
 package rabbit
 
 import (
+	"fmt"
 	"log"
 	"time"
 
@@ -13,7 +14,7 @@ type RMQ struct {
 	Publisher *rabbitmq.Publisher
 }
 
-func New(url string, exchangeName string) (*RMQ, error) {
+func NewPublisher(url string, exchangeName string) (*RMQ, error) {
 	conn, err := rabbitmq.Connect(url, 5, time.Second)
 	if err != nil {
 		return nil, err
@@ -32,9 +33,32 @@ func New(url string, exchangeName string) (*RMQ, error) {
 		return nil, err
 	}
 
-	pub := rabbitmq.NewPublisher(ch, exchangeName)
-
 	log.Println("RabbitMQ connected")
+
+	queue, err := ch.QueueDeclare(
+		"notifications",
+		true,
+		false,
+		false,
+		false,
+		nil,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("queue declare failed: %w", err)
+	}
+
+	err = ch.QueueBind(
+		queue.Name,
+		"notify",     // routing key
+		exchangeName, // exchange
+		false,
+		nil,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("queue bind failed: %w", err)
+	}
+
+	pub := rabbitmq.NewPublisher(ch, exchangeName)
 
 	return &RMQ{
 		Conn:      conn,

@@ -2,6 +2,7 @@ package storage
 
 import (
 	"context"
+	config2 "delayedNotifier/cfg"
 	"delayedNotifier/internal/entity"
 	"encoding/json"
 	"fmt"
@@ -14,8 +15,8 @@ type RedisStorage struct {
 	client *redis.Client
 }
 
-func NewRedisStorage(client *redis.Client) *RedisStorage {
-	return &RedisStorage{client: client}
+func NewRedisStorage(config *config2.AppConfig) *RedisStorage {
+	return &RedisStorage{client: redis.New(config.Redis.Addr, config.Redis.Password, config.Redis.DB)}
 }
 
 // CreateNotify - создает уведомление
@@ -27,7 +28,7 @@ func (r *RedisStorage) CreateNotify(ctx context.Context, notification entity.Not
 	}
 	key := fmt.Sprintf("notify:%s:payload", notification.ID)
 
-	err = r.client.Set(ctx, key, string(marshal))
+	err = r.client.Set(ctx, key, marshal)
 	if err != nil {
 		return err
 	}
@@ -46,7 +47,6 @@ func (r *RedisStorage) GetNotify(ctx context.Context, id string) (*entity.Notifi
 	var n entity.Notification
 	err = json.Unmarshal([]byte(val), &n)
 	if err != nil {
-		log.Println(err)
 		return nil, err
 	}
 	return &n, nil
