@@ -1,0 +1,41 @@
+app:
+  name: 'delayed-notifier'
+  version: '1.0.0'
+
+server:
+  addr: "0.0.0.0:8080"
+
+logger:
+  log_level: 'debug'
+
+rabbit:
+  url: ""
+  consumer:
+    queue: "notifications"
+    consumer: "worker_consumer"
+    auto_ack: false
+    exclusive: false
+    no_local: false
+    no_wait: false
+    args:
+      x_priority: 10
+      x_single_active_consumer: true
+
+redis:
+  addr: "redis:6379"
+  password: ""
+  db: 0
+
+notifier:
+  type: "multi"
+
+  email:
+    host: "smtp.your.ru"
+    port: 465
+    username: "your@yandex.ru"
+    password: "mpgycojjmqqbzcrb"
+    from: "your@yandex.ru"
+
+  telegram:
+    token: "your telegram token"
+    default_chat_id: " your id"
